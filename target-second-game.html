@@ -107,8 +107,8 @@
   /* 盲跑計時中：左右跑馬燈，速度由 JS 每回合「隨機變速」驅動——保留流動視覺，卻無規律可讀秒 */
   #pTargetVal .tmarq{display:block;overflow:hidden;width:100%}
   #pTargetVal .tmtrack{display:inline-block;white-space:nowrap;will-change:transform;
-    font-family:"Space Grotesk","PingFang TC","Noto Sans TC",sans-serif;font-weight:700;
-    font-size:clamp(15px,4.5vw,29px);color:var(--lock);text-shadow:0 0 16px rgba(53,224,200,.5)}
+    font-family:"Space Grotesk","PingFang TC","Noto Sans TC",sans-serif;font-weight:600;
+    font-size:clamp(15px,4.5vw,29px);color:var(--muted);opacity:.6;text-shadow:none}
 
   /* ── 靶線：本頁的招牌 ── */
   .rangewrap{margin:26px 4px 10px}
@@ -185,10 +185,14 @@
   .cdnum{font-family:"Space Mono",monospace;font-weight:700;line-height:1;color:var(--lock);
     font-size:clamp(120px,40vw,300px);text-shadow:0 0 44px rgba(53,224,200,.6);animation:cdpop .5s ease}
   @keyframes cdpop{from{transform:scale(.55);opacity:.15}to{transform:scale(1);opacity:1}}
-  /* 倒數結束的「開始！」閃現：金色、不擋點擊（純視覺提示，不影響已錨定的起跑時間） */
-  .cdover.go{pointer-events:none;background:rgba(6,10,13,.66)}
+  /* 倒數結束的「開始！」：金色爆入、不擋點擊（純視覺，不影響已錨定的起跑時間） */
+  .cdover.go{pointer-events:none;background:rgba(6,10,13,.72)}
   .cdover.go .cdnum{font-family:"Space Grotesk","PingFang TC",sans-serif;color:var(--gold);
-    font-size:clamp(84px,24vw,220px);text-shadow:0 0 48px rgba(255,210,87,.75)}
+    font-size:clamp(84px,24vw,220px);text-shadow:0 0 60px rgba(255,210,87,.85);animation:goburst .16s cubic-bezier(.2,1.5,.3,1)}
+  @keyframes goburst{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+  /* 起跑轉場：快速掀簾上滑退場，讓「開始！」緊貼起跑瞬間、不逗留造成誤判 */
+  .cdover.exit{animation:cdexit .22s cubic-bezier(.6,0,.25,1) forwards}
+  @keyframes cdexit{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-100%)}}
 
   .range .hitzone{position:absolute;top:8px;bottom:8px;left:50%;transform:translateX(-50%);
     background:rgba(53,224,200,.13);border-left:1px dashed rgba(53,224,200,.5);
@@ -296,6 +300,10 @@
   .wlrow .wn{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wlrow .wp{font-family:"Space Mono",monospace;font-weight:700;color:var(--gold);font-size:15px}
   .wlrow .we{font-family:"Space Mono",monospace;color:var(--muted);font-size:13px}
+  .wlrow.hit{border-color:#5a4a12;background:#161206}   /* 神準：金色標亮 */
+  .wlrow.hit .wr,.wlrow.hit .we{color:var(--gold)}
+  .hitbadge{display:inline-block;font-size:11px;font-weight:700;color:#2a2100;background:var(--gold);
+    border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:middle;letter-spacing:.04em}
   .wlcut{border:none;border-top:2px dashed #4a556a;margin:8px 0;position:relative}
   .wlnote{color:var(--warn);font-size:13px;line-height:1.6;margin-top:12px;text-align:center}
   .wlhead{text-align:center;font-weight:700;color:var(--gold);font-size:17px;margin:2px 0 12px}
@@ -345,20 +353,15 @@
     <div class="grid2">
       <div class="card">
         <h2>主持人 · 建立 / 進入房間</h2>
-        <p class="sub">玩家掃 QR 加入；沒投影幕也行，排行榜在每個人手機上。</p>
+        <p class="sub">目標固定 <b style="color:var(--led)">12.00</b> 秒 · 玩家掃 QR 加入；排行榜在每個人手機上。</p>
         <div class="field">
-          <label>房號（留空＝自動；設固定值可事前印 QR）</label>
-          <input class="mono" id="hRoom" maxlength="6" placeholder="例如 EMBA" style="text-transform:uppercase">
-        </div>
-        <div class="field">
-          <label>目標秒數</label>
-          <input class="mono" id="hTarget" type="number" step="0.1" min="1" value="12">
+          <label>房號（留空＝1212；可事前印 QR）</label>
+          <input class="mono" id="hRoom" maxlength="6" placeholder="留空＝1212" style="text-transform:uppercase">
         </div>
         <div class="field">
           <label>神準容差（秒）· 誤差 ≤ 此值即神準</label>
           <input class="mono" id="hTol" type="number" step="0.01" min="0" value="0.12">
         </div>
-        <div class="field"><label class="toggle"><input type="checkbox" id="hRandom"> 每回合隨機出題（5–15 秒）</label></div>
         <div class="field"><label class="toggle"><input type="checkbox" id="hBlind" checked> 盲跑模式（藏起碼錶，靠感覺停）</label></div>
         <div class="field" style="margin-top:16px"><button class="btn primary" id="btnCreate">建立 / 進入房間</button></div>
       </div>
@@ -384,12 +387,12 @@
       </div>
       <div class="field" style="margin-top:16px"><button class="btn primary" id="btnEnter" disabled>加入遊戲</button></div>
       <div class="rulesbox">
-        <div class="rt">📋 玩法 · 猜秒數</div>
+        <div class="rt">📋 玩法 · 猜 12.00 秒</div>
         <ol>
-          <li>主持人公布目標秒數，大家一起倒數 <b>3-2-1</b></li>
-          <li>倒數結束<b>全體同時自動開始</b>，心裡默數（畫面看不到碼錶）</li>
-          <li>憑感覺接近目標時按紅色「<b>停！</b>」</li>
-          <li>最接近目標的人得分；誤差夠小算「<b>神準</b>」另有獎</li>
+          <li>主持人按開始，大家一起倒數 <b>3-2-1</b></li>
+          <li>聽到「<b>叮</b>」<b>全體同時起跑</b>（那一聲＝0 秒基準），心裡默數（看不到碼錶）</li>
+          <li>感覺到 <b>12.00 秒</b>就按紅色「<b>停！</b>」</li>
+          <li>打 <b>3 回合</b>，結束一起頒獎：最準上排名獎、神準標亮、幸運數字加碼</li>
         </ol>
       </div>
       <p class="note" style="text-align:center;margin-top:14px"><a href="#" id="eHost">我是主持人 →</a></p>
@@ -419,25 +422,23 @@
       </div>
       <div class="btnrow" style="margin-top:12px">
         <button class="btn primary" id="btnStartRound">▶ 開始倒數</button>
-        <button class="btn warn" id="btnReveal">結算·揭曉神準</button>
+        <button class="btn warn" id="btnReveal">結算本回合</button>
         <button class="btn ghost" id="btnNextRound">下一回合</button>
-        <button class="btn gold" id="btnAwards">結束活動·頒獎</button>
+        <button class="btn gold" id="btnAwards">🏆 3 回合結束 · 頒獎</button>
         <button class="btn ghost" id="btnInvite">邀請 QR（可列印）</button>
         <button class="btn ghost" id="btnResetScore">重設總分</button>
         <button class="btn ghost" id="btnResetEvent">整場重置</button>
         <button class="btn danger" id="btnEndRoom">結束房間</button>
       </div>
       <div class="awardrow">
-        <label>頒獎名額</label>
-        <input id="hAward" type="number" min="1" max="50" value="12">
-        <button class="btn gold" id="btnWinners">🏅 得獎名單</button>
+        <button class="btn gold" id="btnWinners">🏅 預覽頒獎（排名獎／十二之神／幸運獎）</button>
       </div>
       <div class="awardrow">
         <label>🎰 幸運數字</label>
         <input id="hLucky" style="flex:1;min-width:200px" placeholder="留空＝不啟用">
       </div>
       <div class="awardrow">
-        <button class="btn ghost" id="btnChallenge" style="flex:1">🎯 進入自由挑戰（各自 10 次挑戰目標）</button>
+        <button class="btn ghost" id="btnChallenge" style="flex:1">🎯 進入自由挑戰（各自 10 次挑戰 12.00）</button>
       </div>
       <div id="hDemo" style="display:none;margin-top:10px">
         <div class="btnrow">
@@ -478,7 +479,7 @@
       <div class="roundbar"><div class="roundno">第 <span id="pRoundNo">1</span> 回合</div><div class="phase" id="pPhase"></div></div>
       <div class="target"><div class="lbl" id="pLbl">目標停在</div><div class="val mono" id="pTargetVal">10.000</div></div>
       <div class="btnstage"><div class="btnhousing"><button class="stopbtn" id="pBtn">開始</button></div></div>
-      <div class="yourline" id="pResult">倒數 3·2·1 後自動開始，憑感覺按「停！」停在目標秒數。</div>
+      <div class="yourline" id="pResult">聽到「叮」全體起跑，心裡默數 <b>12.00</b> 秒，憑感覺按「停！」。</div>
     </div>
 
     <div class="card">
@@ -505,7 +506,7 @@
       <div class="roundbar"><div class="roundno">🎯 自由挑戰</div><div class="phase" id="cPhase">第 0/10 次</div></div>
       <div class="target"><div class="lbl" id="cLbl">目標停在</div><div class="val mono" id="cTargetVal">12.00</div></div>
       <div class="btnstage"><div class="btnhousing"><button class="stopbtn" id="cBtn">開始</button></div></div>
-      <div class="yourline" id="cResult">按「開始」→ 盲挑目標秒數，最多 10 次，隨時刷新最佳。</div>
+      <div class="yourline" id="cResult">按「開始」→ 盲挑 <b>12.00</b> 秒，最多 10 次，隨時刷新最佳。</div>
       <div class="clog" id="cLog"></div>
     </div>
     <div class="card">
@@ -529,21 +530,14 @@
   <div class="awardsbox">
     <div class="atrophy">🏆</div>
     <div class="atitle">頒獎</div>
+    <!-- 最高獎：十二之神 -->
     <div class="godbanner" id="awGod" style="display:none"></div>
-    <div class="acards">
-      <div class="acard champ"><div class="ain">🏆</div><div class="alabel">總冠軍</div>
-        <div class="aname" id="awChampName">—</div><div class="adetail" id="awChampDetail"></div></div>
-      <div class="acard bull"><div class="ain">🎯</div><div class="alabel">神準王</div>
-        <div class="aname" id="awBullName">—</div><div class="adetail" id="awBullDetail"></div></div>
-      <div class="acard stable"><div class="ain">🔥</div><div class="alabel">積分王（回合積分最高）</div>
-        <div class="aname" id="awStableName">—</div><div class="adetail" id="awStableDetail"></div></div>
-    </div>
-    <div class="afirst" id="awFirst"></div>
-    <div class="alucky" id="awLucky" style="display:none"></div>
-    <hr class="wlcut">
-    <div class="wlhead">🏅 得獎名單 · 最準前 <span id="wlN">12</span> 名</div>
+    <!-- 排名獎（全部有成績者，依 3 回合最佳成績；神準者標亮） -->
+    <div class="wlhead">🏅 排名獎 · 依三回合最佳成績</div>
     <div class="wlrows" id="wlRows"></div>
     <div class="wlnote" id="wlNote"></div>
+    <!-- 幸運獎 -->
+    <div class="alucky" id="awLucky" style="display:none;margin-top:16px"></div>
     <div class="ibtns"><button class="btn ghost" id="awPrint">列印</button><button class="btn primary" id="awClose">關閉</button></div>
   </div>
 </div>
@@ -557,7 +551,7 @@
     <ol class="isteps">
       <li>手機相機掃上方 QR（或到網址輸入房號）</li>
       <li>填暱稱 → 加入</li>
-      <li>倒數結束自動開始，憑感覺按「停！」</li>
+      <li>聽到「叮」全體起跑，默數 12.00 秒按「停！」</li>
     </ol>
     <div class="ibtns">
       <button class="btn ghost" id="iprint">列印</button>
@@ -660,11 +654,11 @@ const newGoAt=()=>serverNow()+LEAD;
 function sanitizeCode(v){ return (v||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6); }
 
 function createRoom(){
-  const secs=parseFloat($("#hTarget").value)||12;
+  keepAudioAlive();   // 主持人建房此刻啟動音訊保活
   const hitMs=Math.max(0,Math.round((parseFloat($("#hTol").value)||0.12)*1000));
   let code=sanitizeCode($("#hRoom").value) || FIXED_ROOM || genCode();
   S.code=code;S.role="host";
-  S.random=$("#hRandom").checked;S.blind=$("#hBlind").checked;S.target=Math.round(secs*1000);S.hit=hitMs;
+  S.random=false;S.blind=$("#hBlind").checked;S.target=12000;S.hit=hitMs;   // 目標固定 12.00 秒
   const luckyStr=$("#hLucky").value; setLucky(luckyStr);
   const enterHost=()=>{ $("#hcCode").textContent=S.code;$("#hcUrl").textContent=joinUrl(S.code);
     drawQR(S.code);$("#hDemo").style.display=DEMO?"block":"none"; goto("s-host");renderHost(); };
@@ -691,6 +685,7 @@ function doJoin(code,name){
   code=sanitizeCode(code); name=(name||"").trim().replace(/\s+/g," ");
   if(code.length<3){toast("房號無效");return;}
   if(!name){toast("請先輸入名字");return;}
+  keepAudioAlive();   // 玩家加入此刻啟動音訊保活 → 倒數結束的「叮」才播得出來
   if(db){
     // 真正加入（房間已存在時）
     const finishJoin=()=>db.ref(`rooms/${code}/players`).get().then(psnap=>{
@@ -808,7 +803,7 @@ function startCountdown(goAt){
     const rem=goAt-serverNow();
     if(rem>0){
       counted=true;
-      ov.classList.add("show"); ov.classList.remove("go");
+      ov.classList.add("show"); ov.classList.remove("go","exit");
       const n=Math.min(3,Math.max(1,Math.ceil(rem/1000)));
       if(num.textContent!==String(n)){ num.textContent=n; popAnim(num); }
       if(S.role==="host" && cdSpoken!==n){ cdSpoken=n; say(String(n)); }
@@ -818,11 +813,11 @@ function startCountdown(goAt){
       if(!counted){ clearInterval(cdTimer); goIdle(); return; }
       if(!started){
         started=true;
+        clearInterval(cdTimer);   // 起跑已觸發，倒數 tick 任務結束
         setRoundOpen(true);
-        // ★ 明確的「開始！」閃現 + 清脆「叮！」：讓全場用看的、用聽的都知道正確起跑瞬間
-        num.textContent="開始！"; ov.classList.add("show","go"); popAnim(num);
-        startDing();
-        if(S.role==="host"){ cdSpoken=0; say("開始"); }
+        // ★「開始！」金色爆入 + 清脆「叮！」，隨即掀簾式退場露出遊戲畫面
+        num.textContent="開始！"; ov.classList.add("show","go"); ov.classList.remove("exit"); popAnim(num);
+        startDing();   // 起跑只用「叮」，不再念「開始」語音
         // 玩家：此刻自動開始計時，錨定共同起跑點 goAt
         if(S.role==="player" && !submitted && !running){
           running=true;
@@ -834,9 +829,10 @@ function startCountdown(goAt){
           refreshPlayBtn();
           liveTick();
         }
+        // 起跑轉場：「開始！」快速閃現 → 掀簾上滑退場 → 收掉（總長縮短，緊貼起跑瞬間）
+        setTimeout(()=>ov.classList.add("exit"),180);
+        setTimeout(()=>ov.classList.remove("show","go","exit"),400);
       }
-      // 「開始！」秀約 0.45 秒後收掉覆蓋層（計時不受影響，早已錨定 goAt）
-      if(rem<=-450){ ov.classList.remove("show","go"); clearInterval(cdTimer); }
     }
   }
   tick();cdTimer=setInterval(tick,100);
@@ -845,7 +841,7 @@ function popAnim(el){ el.style.animation="none"; void el.offsetWidth; el.style.a
 function say(t){ if(!("speechSynthesis"in window))return; const u=new SpeechSynthesisUtterance(t); u.lang="zh-TW"; u.rate=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
 /* 待命：進房或回合之間，不倒數、不能出手，等主持人按「開始倒數」 */
-function goIdle(){ clearInterval(cdTimer); $("#cdOverlay").classList.remove("show","go"); setRoundOpen(false); }
+function goIdle(){ clearInterval(cdTimer); $("#cdOverlay").classList.remove("show","go","exit"); setRoundOpen(false); }
 /* 主持人按「開始倒數」：此刻才啟動本回合的 3-2-1 */
 function startRoundCountdown(){
   const goAt=newGoAt();
@@ -856,15 +852,20 @@ function startRoundCountdown(){
 /* ── 神準慶祝（每支手機都會跳） ── */
 let ac=null;
 /* 解鎖音訊：手機需在使用者互動後才允許出聲，故第一次點擊/觸控時先喚醒 AudioContext */
-function unlockAudio(){ try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume(); }catch(e){} }
+function unlockAudio(){ try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
+  const b=ac.createBuffer(1,1,22050),s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }  // iOS 完整解鎖：播一段極短靜音
 ["pointerdown","touchstart","keydown"].forEach(ev=>window.addEventListener(ev,unlockAudio,{once:true,passive:true}));
+/* 無聲保活：進場時啟動一個 0 音量振盪器，讓手機音訊引擎不休眠，倒數結束的「叮」才播得出來 */
+let keepAliveOsc=null;
+function keepAudioAlive(){ try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
+  if(keepAliveOsc) return; const o=ac.createOscillator(),g=ac.createGain(); g.gain.value=0; o.frequency.value=30; o.connect(g); g.connect(ac.destination); o.start(); keepAliveOsc=o; }catch(e){} }
 /* 起跑「叮！」：清脆鈴聲，讓全場用聽的也知道正確起跑瞬間 */
 function startDing(){
   try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
     const t=ac.currentTime;
-    const comp=ac.createDynamicsCompressor(); comp.threshold.value=-18; comp.ratio.value=8; comp.attack.value=.002; comp.release.value=.25;
-    const mas=ac.createGain(); mas.gain.value=1.0; comp.connect(mas); mas.connect(ac.destination);   // 壓縮器 → 大聲不破音
-    [[1568,.75],[2349,.55],[3136,.30]].forEach(([f,vol])=>{      // 明亮三泛音，穿透吵雜人聲
+    const comp=ac.createDynamicsCompressor(); comp.threshold.value=-24; comp.ratio.value=12; comp.attack.value=.002; comp.release.value=.25;
+    const mas=ac.createGain(); mas.gain.value=2.2; comp.connect(mas); mas.connect(ac.destination);   // 重壓縮＋補償增益 → 明顯更大聲又不破音
+    [[1568,1.15],[2349,.85],[3136,.5]].forEach(([f,vol])=>{      // 明亮三泛音，音量拉高、穿透吵雜人聲
       const o=ac.createOscillator(),g=ac.createGain();
       o.type="sine";o.frequency.value=f;o.connect(g);g.connect(comp);
       g.gain.setValueAtTime(.0001,t);
@@ -907,7 +908,7 @@ function refreshPlayBtn(){
   pBtn.disabled=true;pBtn.className="stopbtn";pBtn.textContent="準備…";   // 倒數結束會自動開始，玩家不用先按開始
 }
 function resetPlay(){ running=false;submitted=false;if(raf)cancelAnimationFrame(raf);
-  $("#pResult").innerHTML="倒數 3·2·1 後會自動開始，憑感覺按「停！」停在目標秒數。"; renderPlayer(); }
+  $("#pResult").innerHTML="聽到「叮」全體起跑，心裡默數 <b>12.00</b> 秒，憑感覺按「停！」。"; renderPlayer(); }
 function liveTick(){ if(!running)return; if(!S.blind){const e=nowMs()-tStart;$("#pTargetVal").textContent=fx(e);} raf=requestAnimationFrame(liveTick); }
 /* 盲跑計時中：左右跑馬燈，速度每回合隨機、變化時機也隨機 → 完全無規律，不可讀秒 */
 let marqRAF=null,marqTrack=null,marqPos=0,marqVel=90,marqTargetVel=90,marqNext=0,marqLast=0,marqSegW=0;
@@ -973,10 +974,8 @@ function settleRound(){
   const M=list.length;
   const hits=list.filter(r=>(r.error||0)<=S.hit);                    // 神準：誤差 ≤ 容差
   const gods=list.filter(r=>(r.error||0)<PERFECT_MS);                // 十二之神：誤差 < 0.01 秒
-  const godIds=new Set(gods.map(g=>g.id));
   S.settled=S.round;
-  const hitPayload=hits.filter(h=>!godIds.has(h.id)).map(h=>({name:h.name,error:h.error}));  // 神準慶祝排除封神者
-  const godPayload=gods.map(g=>({name:g.name,error:g.error}));
+  // 新制：每回合只默默結算（不揭曉、不慶祝），3 回合打完才一次頒獎
   if(db){
     /* 結算時主持人是 scores/bullseyes/lucky/god 的唯一寫入者（玩家在遊戲模式不碰這些節點），
        故用本機現值算好、一次 update() 批次寫入；取代逐人 transaction，把 50 人×多節點的
@@ -986,11 +985,12 @@ function settleRound(){
     const luckyMap={}; S.lucky.forEach(l=>luckyMap[l.id]={...l});
     const godMap={};   S.gods.forEach(g=>godMap[g.id]={...g});
     const updates={};
-    list.forEach((r,i)=>{                                            // 名次反向計分：第1名 M 分…最後1分
+    list.forEach((r,i)=>{                                            // 記錄積分＋每人「3 回合最佳一次」誤差（排名獎依此排）
       const pts=M-i, err=r.error||0;
-      const c=scoreMap[r.id]||{name:r.name,points:0,rounds:0,totErr:0};
+      const c=scoreMap[r.id]||{name:r.name,points:0,rounds:0,totErr:0,bestErr:err,bestElapsed:r.elapsed};
       c.name=r.name; c.points=(c.points||0)+pts; c.rounds=(c.rounds||0)+1; c.totErr=(c.totErr||0)+err;
-      updates[path("scores",r.id)]={name:c.name,points:c.points,rounds:c.rounds,totErr:c.totErr};
+      if(err<(c.bestErr!=null?c.bestErr:Infinity)){ c.bestErr=err; c.bestElapsed=r.elapsed; }
+      updates[path("scores",r.id)]={name:c.name,points:c.points,rounds:c.rounds,totErr:c.totErr,bestErr:c.bestErr,bestElapsed:c.bestElapsed};
     });
     hits.forEach(h=>{                                                // 神準榜（記錄最接近的那次）
       const c=bullMap[h.id]||{name:h.name,count:0,firstAt:serverNow(),bestErr:h.error,bestElapsed:h.elapsed};
@@ -998,10 +998,11 @@ function settleRound(){
       if(h.error<(c.bestErr!=null?c.bestErr:Infinity)){ c.bestErr=h.error; c.bestElapsed=h.elapsed; }
       updates[path("bullseyes",h.id)]={name:c.name,count:c.count,firstAt:c.firstAt,bestErr:c.bestErr,bestElapsed:c.bestElapsed};
     });
-    gods.forEach(g=>{                                                // 十二之神榜
-      const c=godMap[g.id]||{name:g.name,count:0,best:99999};
-      c.name=g.name; c.count=(c.count||0)+1; c.best=Math.min(c.best==null?99999:c.best,g.error);
-      updates[path("god",g.id)]={name:c.name,count:c.count,best:c.best};
+    gods.forEach(g=>{                                                // 十二之神榜（記錄最佳誤差那次的停錶時間）
+      const c=godMap[g.id]||{name:g.name,count:0,best:99999,bestElapsed:g.elapsed};
+      c.name=g.name; c.count=(c.count||0)+1;
+      if(g.error<(c.best==null?99999:c.best)){ c.best=g.error; c.bestElapsed=g.elapsed; }
+      updates[path("god",g.id)]={name:c.name,count:c.count,best:c.best,bestElapsed:c.bestElapsed};
     });
     list.forEach(r=>{                                                // 幸運數字：默默記錄，最後頒獎才揭曉
       const ln=luckyNum(r.elapsed); if(!ln) return;
@@ -1010,21 +1011,18 @@ function settleRound(){
       updates[path("lucky",r.id)]={name:c.name,nums:c.nums,count:c.count};
     });
     updates[path("meta","settled")]=S.round;
-    updates[path("reveal")]={round:S.round,at:serverNow(),hits:hitPayload,gods:godPayload};   // 揭曉神準＋十二之神
     db.ref().update(updates).catch(e=>{console.error(e);toast("結算寫入失敗，請重試");});
   } else {
-    list.forEach((r,i)=>awardPoints(r.id,r.name,M-i,r.error));
+    list.forEach((r,i)=>awardPoints(r.id,r.name,M-i,r.error,r.elapsed));
     hits.forEach(h=>awardBullseye(h.id,h.name,h.error,h.elapsed));
-    gods.forEach(g=>awardGod(g.id,g.name,g.error));
+    gods.forEach(g=>awardGod(g.id,g.name,g.error,g.elapsed));
     list.forEach(r=>{ const ln=luckyNum(r.elapsed); if(ln){ awardLucky(r.id,r.name,ln); } });
-    lastReveal=S.round; revealedRound=S.round; revealHits(hitPayload,godPayload);
   }
-  if(list[0]) say(`本回合最準，${list[0].name}`);
 }
 const PERFECT_MS=10;   // 誤差 < 0.01 秒 = 十二之神
-function awardGod(id,name,error){
-  if(db){ db.ref(path("god",id)).transaction(cur=>{cur=cur||{name,count:0,best:99999}; cur.name=name; cur.count=(cur.count||0)+1; cur.best=Math.min(cur.best==null?99999:cur.best,error); return cur;}); }
-  else { let g=S.gods.find(x=>x.id===id); if(!g){g={id,name,count:0,best:99999};S.gods.push(g);} g.name=name;g.count++;g.best=Math.min(g.best,error); }
+function awardGod(id,name,error,elapsed){
+  if(db){ db.ref(path("god",id)).transaction(cur=>{cur=cur||{name,count:0,best:99999,bestElapsed:elapsed}; cur.name=name; cur.count=(cur.count||0)+1; if(error<(cur.best==null?99999:cur.best)){cur.best=error;cur.bestElapsed=elapsed;} return cur;}); }
+  else { let g=S.gods.find(x=>x.id===id); if(!g){g={id,name,count:0,best:99999,bestElapsed:elapsed};S.gods.push(g);} g.name=name;g.count++; if(error<g.best){g.best=error;g.bestElapsed=elapsed;} }
 }
 /* 幸運數字：停在（顯示 2 位）剛好等於這些秒數 */
 const DEFAULT_LUCKY="11.11 11.12 11.13 12.11 12.12 12.13 13.11 13.12 13.13 12.07 7.12";
@@ -1036,19 +1034,19 @@ function awardLucky(id,name,num){
   if(db){ db.ref(path("lucky",id)).transaction(cur=>{cur=cur||{name,nums:"",count:0}; cur.name=name; cur.count=(cur.count||0)+1; cur.nums=(cur.nums?cur.nums+" ":"")+num; return cur;}); }
   else { let l=S.lucky.find(x=>x.id===id); if(!l){l={id,name,nums:"",count:0};S.lucky.push(l);} l.name=name;l.count++;l.nums=(l.nums?l.nums+" ":"")+num; }
 }
-function awardPoints(id,name,pts,err){
+function awardPoints(id,name,pts,err,elapsed){
   err=err||0;
-  if(db){ db.ref(path("scores",id)).transaction(cur=>{cur=cur||{name,points:0,rounds:0,totErr:0};
-    cur.name=name;cur.points=(cur.points||0)+pts;cur.rounds=(cur.rounds||0)+1;cur.totErr=(cur.totErr||0)+err;return cur;}); }
-  else { let s=S.scores.find(x=>x.id===id); if(!s){s={id,name,points:0,rounds:0,totErr:0};S.scores.push(s);}
-    s.name=name;s.points+=pts;s.rounds++;s.totErr=(s.totErr||0)+err; renderActiveBoard(); }
+  if(db){ db.ref(path("scores",id)).transaction(cur=>{cur=cur||{name,points:0,rounds:0,totErr:0,bestErr:err,bestElapsed:elapsed};
+    cur.name=name;cur.points=(cur.points||0)+pts;cur.rounds=(cur.rounds||0)+1;cur.totErr=(cur.totErr||0)+err;
+    if(err<(cur.bestErr!=null?cur.bestErr:Infinity)){cur.bestErr=err;cur.bestElapsed=elapsed;} return cur;}); }
+  else { let s=S.scores.find(x=>x.id===id); if(!s){s={id,name,points:0,rounds:0,totErr:0,bestErr:err,bestElapsed:elapsed};S.scores.push(s);}
+    s.name=name;s.points+=pts;s.rounds++;s.totErr=(s.totErr||0)+err;
+    if(err<(s.bestErr!=null?s.bestErr:Infinity)){s.bestErr=err;s.bestElapsed=elapsed;} renderActiveBoard(); }
 }
 function nextRound(){
   settleRound();                                  // 自動結算上一回合
   const nr=S.round+1;
-  let tgt=S.target;
-  if(S.random) tgt=Math.round((5+Math.random()*10)*1000);
-  else { const v=parseFloat($("#hTarget").value); if(v) tgt=Math.round(v*1000); }
+  const tgt=12000;                                // 目標固定 12.00 秒
   if(db){ db.ref(path("meta")).update({round:nr,target:tgt,goAt:0,settled:S.settled}); }
   else { S.round=nr;S.target=tgt;S.roundResults=[];S._lastGoAt=0;S.goAt=0;
     resetPlay(); goIdle(); renderHost(); }
@@ -1065,53 +1063,41 @@ async function doAwards(){
   if(db) db.ref(path("awards")).set(serverNow()); else showAwards();
 }
 function showAwards(){
-  const played=[...S.scores].filter(s=>(s.rounds||0)>0);
-  const avgErr=s=>(s.totErr||0)/(s.rounds||1);
-  const byAcc=played.slice().sort((a,b)=>avgErr(a)-avgErr(b));                                   // 最準
-  const byPts=played.slice().sort((a,b)=>(b.points||0)-(a.points||0)||avgErr(a)-avgErr(b));      // 積分
-  const byBull=[...S.bullseyes].sort((a,b)=>(b.count||0)-(a.count||0)||(a.firstAt||0)-(b.firstAt||0));
-  const firstHit=[...S.bullseyes].sort((a,b)=>(a.firstAt||0)-(b.firstAt||0))[0];
-  const taken=new Set();
-  const pick=(arr,req)=>{ for(const p of arr){ if(!taken.has(p.id)&&(!req||req(p))){ taken.add(p.id); return p; } } return null; };
-  const champ=pick(byAcc);                                   // 🏆 總冠軍＝最準（平均誤差最小）
-  const bullKing=pick(byBull,p=>(p.count||0)>0);             // 🎯 神準王＝神準最多（不重複）
-  const ptsKing=pick(byPts);                                 // 🔥 積分王＝回合積分最高（不重複）
-  const set=(idN,idD,name,detail)=>{ $(idN).textContent=name||"從缺"; $(idD).textContent=detail||""; };
-  set("#awChampName","#awChampDetail",champ&&champ.name, champ?`平均誤差 ${fx(avgErr(champ))} 秒`:"");
-  set("#awBullName","#awBullDetail",bullKing&&bullKing.name, bullKing?`🎯 ${bullKing.count}`:"本場無人神準");
-  set("#awStableName","#awStableDetail",ptsKing&&ptsKing.name, ptsKing?`${ptsKing.points} 分`:"");
-  $("#awFirst").textContent = firstHit ? `首位神準：${firstHit.name}` : "";
+  // 👑 十二之神（最高獎，放最前）
   const gd=$("#awGod");
   if(S.gods && S.gods.length){ gd.style.display="block";
-    gd.innerHTML=`<div class="gbtitle">👑 十二之神</div>`+S.gods.slice().sort((a,b)=>(a.best||0)-(b.best||0)).map(g=>`<span class="gbchip">${escapeHtml(g.name)} · 誤差 ${fx3(g.best)} 秒</span>`).join(""); }
+    gd.innerHTML=`<div class="gbtitle">👑 十二之神</div>`+S.gods.slice().sort((a,b)=>(a.best||0)-(b.best||0)).map(g=>`<span class="gbchip">${escapeHtml(g.name)} · 停 ${g.bestElapsed!=null?fx(g.bestElapsed):"—"}s · 誤差 ${fx3(g.best)} 秒</span>`).join(""); }
   else gd.style.display="none";
+  // 🏅 排名獎：全部有成績者，依「3 回合最佳一次」誤差排名；神準者標亮
+  renderRankAward();
+  // 🎰 幸運獎
   const lk=$("#awLucky");
   if(S.lucky && S.lucky.length){ lk.style.display="block";
     const rows=S.lucky.map(l=>`<div class="lkrow"><span class="lkname">${escapeHtml(l.name)}</span><span class="lknum">${escapeHtml(l.nums||"")}</span></div>`).join("");
-    lk.innerHTML=`<div class="lkbox"><div class="lktitle">🎰 幸運數字加碼獎</div><div class="lksub">停在特定吉祥數字·額外加碼 ${S.lucky.length} 人</div>${rows}</div>`; }
+    lk.innerHTML=`<div class="lkbox"><div class="lktitle">🎰 幸運獎</div><div class="lksub">停在幸運數字 · 共 ${S.lucky.length} 人</div>${rows}</div>`; }
   else lk.style.display="none";
-  renderWinnerList(byAcc);
   $("#awardsover").classList.add("show"); awardsOpen=true;
-  if(S.role==="host" && champ) say(`總冠軍，${champ.name}`);
+  const top=rankList()[0];
+  if(S.role==="host" && top) say(`第一名，${top.name}`);
 }
-/* 得獎名單（前 N 名）＝ 全場最準的 N 人（平均誤差最小） */
-function renderWinnerList(sortedByAcc){
-  const N=Math.max(1,Math.min(50,parseInt($("#hAward").value)||12));
-  $("#wlN").textContent=N;
-  const avgErr=s=>(s.totErr||0)/(s.rounds||1);
-  const ranked=(sortedByAcc||[...S.scores].filter(s=>(s.rounds||0)>0).sort((a,b)=>avgErr(a)-avgErr(b)));
+/* 排名依據：每人 3 回合中「最佳一次」誤差（越小越前） */
+function rankList(){
+  return [...S.scores].filter(s=>(s.rounds||0)>0 && s.bestErr!=null)
+    .sort((a,b)=>(a.bestErr-b.bestErr)||((a.bestElapsed||0)-(b.bestElapsed||0)));
+}
+function renderRankAward(){
+  const ranked=rankList();
   if(!ranked.length){ $("#wlRows").innerHTML='<div class="empty">還沒有成績</div>'; $("#wlNote").textContent=""; return; }
-  const top=ranked.slice(0,N);
-  $("#wlRows").innerHTML=top.map((r,i)=>{
-    return `<div class="wlrow${i<3?" top3":""}"><span class="wr">${i+1}</span><span class="wn">${escapeHtml(r.name)}</span>`
-      +`<span class="wp">誤差 ${fx(avgErr(r))}</span><span class="we">${r.points||0} 分</span></div>`;
+  const hit=S.hit;
+  $("#wlRows").innerHTML=ranked.map((r,i)=>{
+    const isHit=r.bestErr<=hit;
+    return `<div class="wlrow${isHit?" hit":""}"><span class="wr">${i+1}</span>`
+      +`<span class="wn">${escapeHtml(r.name)}${isHit?' <span class="hitbadge">🎯神準</span>':''}</span>`
+      +`<span class="wp">${r.bestElapsed!=null?`停 ${fx(r.bestElapsed)}s`:''}</span>`
+      +`<span class="we">±${fx(r.bestErr)}</span></div>`;
   }).join("");
-  const last=ranked[N-1], next=ranked[N];
-  let note="";
-  if(next && last && Math.round(avgErr(last)*100)===Math.round(avgErr(next)*100)){
-    note=`⚠ 第 ${N} 名與第 ${N+1} 名平均誤差極接近（${fx(avgErr(last))} vs ${fx(avgErr(next))}），必要時可加賽一回合。`;
-  } else if(ranked.length<=N){ note=`目前只有 ${ranked.length} 人有成績。`; }
-  $("#wlNote").textContent=note;
+  const hitCount=ranked.filter(r=>r.bestErr<=hit).length;
+  $("#wlNote").textContent=`共 ${ranked.length} 人有成績 · 其中 ${hitCount} 人達神準（誤差 ≤ ${(hit/1000).toFixed(2)}s）`;
 }
 
 /* 整場重置：清空玩家 + 成績 + 積分 + 神準，回到第 1 回合（活動開始前用一次） */
@@ -1229,7 +1215,7 @@ function renderHost(){
   $("#hcRound").textContent=`目標 ${fx(S.target)} 秒 · 神準 ≤${(S.hit/1000).toFixed(2)}s`+(S.random?" · 隨機出題":"")+(S.blind?" · 盲跑":"")+(live?"":"（按 ▶ 開始倒數）");
   renderCount(); renderActiveBoard();
   const cc=$("#hChallengeCard"); if(cc) cc.style.display=(S.mode==="challenge")?"block":"none";
-  const cb=$("#btnChallenge"); if(cb) cb.textContent=(S.mode==="challenge")?"🎯 自由挑戰進行中…":"🎯 進入自由挑戰（各自 10 次挑戰目標）";
+  const cb=$("#btnChallenge"); if(cb) cb.textContent=(S.mode==="challenge")?"🎯 自由挑戰進行中…":"🎯 進入自由挑戰（各自 10 次挑戰 12.00）";
 }
 function renderPlayer(){
   $("#pCode").textContent=S.code||"----";
@@ -1300,7 +1286,7 @@ cBtn && cBtn.addEventListener("click",()=>{
     if(cBest==null||error<cBest){ cBest=error; cBestElapsed=elapsed; }
     const nowHit=error<=S.hit; let firstHit=false;
     if(nowHit && !cHit){ cHit=true; cHitAt=cAttempts; firstHit=true; }
-    const god=error<PERFECT_MS; if(god) awardGod(myId,S.myName,error);
+    const god=error<PERFECT_MS; if(god) awardGod(myId,S.myName,error,elapsed);
     cLog.push({el:Math.round(elapsed),er:Math.round(error),hit:nowHit,god:god});
     $("#cLbl").textContent="你停在";$("#cTargetVal").classList.remove("blindhide");$("#cTargetVal").textContent=fx(elapsed);
     $("#cPhase").textContent=cPhaseText();
@@ -1332,7 +1318,8 @@ function notifyChal(c){ toast(`🎉 ${c.name} 達標！第 ${c.hitAt} 次 · 誤
 let godSeeded=false; const godAnnounced=new Set();
 function onGodUpdate(){
   if(!godSeeded){ godSeeded=true; S.gods.forEach(g=>godAnnounced.add(g.id)); }
-  else if(S.role==="host"){ S.gods.forEach(g=>{ if(!godAnnounced.has(g.id)){ godAnnounced.add(g.id); toast(`👑 ${g.name} 封神！十二之神 · 誤差 ${fx3(g.best)} 秒`); fanfare(); try{navigator.vibrate&&navigator.vibrate([100,60,100,60,200])}catch(e){} say(`十二之神，${g.name}`); } }); }
+  else if(S.role==="host" && S.mode==="challenge"){ S.gods.forEach(g=>{ if(!godAnnounced.has(g.id)){ godAnnounced.add(g.id); toast(`👑 ${g.name} 封神！十二之神 · 誤差 ${fx3(g.best)} 秒`); fanfare(); try{navigator.vibrate&&navigator.vibrate([100,60,100,60,200])}catch(e){} say(`十二之神，${g.name}`); } }); }
+  else { S.gods.forEach(g=>godAnnounced.add(g.id)); }   // 遊戲模式：只默默記錄，十二之神留到最後頒獎才揭曉
   if(awardsOpen) showAwards();
 }
 function onChallengersUpdate(){
