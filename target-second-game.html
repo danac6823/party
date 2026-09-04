@@ -180,6 +180,10 @@
   .cdnum{font-family:"Space Mono",monospace;font-weight:700;line-height:1;color:var(--lock);
     font-size:clamp(120px,40vw,300px);text-shadow:0 0 44px rgba(53,224,200,.6);animation:cdpop .5s ease}
   @keyframes cdpop{from{transform:scale(.55);opacity:.15}to{transform:scale(1);opacity:1}}
+  /* 倒數結束的「開始！」閃現：金色、不擋點擊（純視覺提示，不影響已錨定的起跑時間） */
+  .cdover.go{pointer-events:none;background:rgba(6,10,13,.66)}
+  .cdover.go .cdnum{font-family:"Space Grotesk","PingFang TC",sans-serif;color:var(--gold);
+    font-size:clamp(84px,24vw,220px);text-shadow:0 0 48px rgba(255,210,87,.75)}
 
   .range .hitzone{position:absolute;top:8px;bottom:8px;left:50%;transform:translateX(-50%);
     background:rgba(53,224,200,.13);border-left:1px dashed rgba(53,224,200,.5);
@@ -794,30 +798,40 @@ let cdTimer=null,cdSpoken=-1;
 function startCountdown(goAt){
   clearInterval(cdTimer);cdSpoken=-1;
   const ov=$("#cdOverlay"),num=$("#cdNum");
+  let counted=false, started=false;        // counted：真的跑過 3-2-1；started：已觸發開始（避免重複）
   function tick(){
     const rem=goAt-serverNow();
     if(rem>0){
-      ov.classList.add("show");
+      counted=true;
+      ov.classList.add("show"); ov.classList.remove("go");
       const n=Math.min(3,Math.max(1,Math.ceil(rem/1000)));
       if(num.textContent!==String(n)){ num.textContent=n; popAnim(num); }
       if(S.role==="host" && cdSpoken!==n){ cdSpoken=n; say(String(n)); }
       setRoundOpen(false);
     } else {
-      ov.classList.remove("show");
-      clearInterval(cdTimer);
-      setRoundOpen(true);
-      // 新玩法：倒數結束 → 全體同一起跑點「自動開始」計時，玩家只需按「停」
-      if(S.role==="player" && !submitted && !running){
-        running=true;
-        tStart=nowMs()-Math.max(0,serverNow()-goAt);   // 錨定到共同起跑點 goAt（之後用本機高精度計時量誤差）
-        try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
-        if(S.blind){ $("#pTargetVal").textContent="—"; $("#pTargetVal").classList.add("blindhide"); }
-        else $("#pTargetVal").classList.remove("blindhide");
-        $("#pLbl").textContent="計時中";
-        $("#pResult").innerHTML='<b style="color:var(--miss)">⏱ 開始！</b> 憑感覺按「停！」';
-        refreshPlayBtn();
-        liveTick();
+      // 中途加入(起跑點已過、沒真的倒數過) → 不啟動，等下一回合
+      if(!counted){ clearInterval(cdTimer); goIdle(); return; }
+      if(!started){
+        started=true;
+        setRoundOpen(true);
+        // ★ 明確的「開始！」閃現：讓全場清楚知道正確起跑瞬間（1 與起跑之間不再誤會）
+        num.textContent="開始！"; ov.classList.add("show","go"); popAnim(num);
+        if(S.role==="host"){ cdSpoken=0; say("開始"); }
+        // 玩家：此刻自動開始計時，錨定共同起跑點 goAt
+        if(S.role==="player" && !submitted && !running){
+          running=true;
+          tStart=nowMs()-Math.max(0,serverNow()-goAt);   // 錨定 goAt（之後用本機高精度計時量誤差）
+          try{navigator.vibrate&&navigator.vibrate([50,40,90])}catch(e){}
+          if(S.blind){ $("#pTargetVal").textContent="—"; $("#pTargetVal").classList.add("blindhide"); }
+          else $("#pTargetVal").classList.remove("blindhide");
+          $("#pLbl").textContent="計時中";
+          $("#pResult").innerHTML='<b style="color:var(--lock)">⏱ 開始！</b> 憑感覺按「停！」';
+          refreshPlayBtn();
+          liveTick();
+        }
       }
+      // 「開始！」秀約 0.7 秒後收掉覆蓋層（計時不受影響，早已錨定 goAt）
+      if(rem<=-700){ ov.classList.remove("show","go"); clearInterval(cdTimer); }
     }
   }
   tick();cdTimer=setInterval(tick,100);
@@ -826,7 +840,7 @@ function popAnim(el){ el.style.animation="none"; void el.offsetWidth; el.style.a
 function say(t){ if(!("speechSynthesis"in window))return; const u=new SpeechSynthesisUtterance(t); u.lang="zh-TW"; u.rate=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
 /* 待命：進房或回合之間，不倒數、不能出手，等主持人按「開始倒數」 */
-function goIdle(){ clearInterval(cdTimer); $("#cdOverlay").classList.remove("show"); setRoundOpen(false); }
+function goIdle(){ clearInterval(cdTimer); $("#cdOverlay").classList.remove("show","go"); setRoundOpen(false); }
 /* 主持人按「開始倒數」：此刻才啟動本回合的 3-2-1 */
 function startRoundCountdown(){
   const goAt=newGoAt();
