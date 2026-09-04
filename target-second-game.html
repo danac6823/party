@@ -104,6 +104,11 @@
     font-size:clamp(52px,15vw,120px);line-height:1;margin-top:6px;
     text-shadow:0 0 12px rgba(255,47,28,.5),0 0 40px rgba(255,47,28,.3)}
   .target .val.blindhide{color:#2a3a44;text-shadow:none} /* 玩家跑動中 */
+  /* 盲跑計時中：左右跑馬燈，速度由 JS 每回合「隨機變速」驅動——保留流動視覺，卻無規律可讀秒 */
+  #pTargetVal .tmarq{display:block;overflow:hidden;width:100%}
+  #pTargetVal .tmtrack{display:inline-block;white-space:nowrap;will-change:transform;
+    font-family:"Space Grotesk","PingFang TC","Noto Sans TC",sans-serif;font-weight:700;
+    font-size:clamp(15px,4.5vw,29px);color:var(--lock);text-shadow:0 0 16px rgba(53,224,200,.5)}
 
   /* ── 靶線：本頁的招牌 ── */
   .rangewrap{margin:26px 4px 10px}
@@ -823,16 +828,15 @@ function startCountdown(goAt){
           running=true;
           tStart=nowMs()-Math.max(0,serverNow()-goAt);   // 錨定 goAt（之後用本機高精度計時量誤差）
           try{navigator.vibrate&&navigator.vibrate([50,40,90])}catch(e){}
-          if(S.blind){ $("#pTargetVal").textContent="—"; $("#pTargetVal").classList.add("blindhide"); }
-          else $("#pTargetVal").classList.remove("blindhide");
-          $("#pLbl").textContent="計時中";
+          if(S.blind){ showTimingMarquee(); }
+          else { $("#pTargetVal").classList.remove("blindhide"); $("#pLbl").textContent="計時中"; }
           $("#pResult").innerHTML='<b style="color:var(--lock)">⏱ 開始！</b> 憑感覺按「停！」';
           refreshPlayBtn();
           liveTick();
         }
       }
-      // 「開始！」秀約 0.7 秒後收掉覆蓋層（計時不受影響，早已錨定 goAt）
-      if(rem<=-700){ ov.classList.remove("show","go"); clearInterval(cdTimer); }
+      // 「開始！」秀約 0.45 秒後收掉覆蓋層（計時不受影響，早已錨定 goAt）
+      if(rem<=-450){ ov.classList.remove("show","go"); clearInterval(cdTimer); }
     }
   }
   tick();cdTimer=setInterval(tick,100);
@@ -858,13 +862,15 @@ function unlockAudio(){ try{ if(!ac)ac=new (window.AudioContext||window.webkitAu
 function startDing(){
   try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
     const t=ac.currentTime;
-    [[1319,.55],[1976,.30]].forEach(([f,vol])=>{                 // 疊兩個泛音 → 鈴鐺音色
+    const comp=ac.createDynamicsCompressor(); comp.threshold.value=-18; comp.ratio.value=8; comp.attack.value=.002; comp.release.value=.25;
+    const mas=ac.createGain(); mas.gain.value=1.0; comp.connect(mas); mas.connect(ac.destination);   // 壓縮器 → 大聲不破音
+    [[1568,.75],[2349,.55],[3136,.30]].forEach(([f,vol])=>{      // 明亮三泛音，穿透吵雜人聲
       const o=ac.createOscillator(),g=ac.createGain();
-      o.type="sine";o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+      o.type="sine";o.frequency.value=f;o.connect(g);g.connect(comp);
       g.gain.setValueAtTime(.0001,t);
-      g.gain.exponentialRampToValueAtTime(vol,t+.008);           // 快速起音
-      g.gain.exponentialRampToValueAtTime(.0001,t+.6);           // 約 0.6 秒鈴響衰減
-      o.start(t);o.stop(t+.65);
+      g.gain.exponentialRampToValueAtTime(vol,t+.004);           // 快速起音
+      g.gain.exponentialRampToValueAtTime(.0001,t+.7);           // 約 0.7 秒鈴響衰減
+      o.start(t);o.stop(t+.75);
     });
   }catch(e){}
 }
@@ -903,6 +909,31 @@ function refreshPlayBtn(){
 function resetPlay(){ running=false;submitted=false;if(raf)cancelAnimationFrame(raf);
   $("#pResult").innerHTML="倒數 3·2·1 後會自動開始，憑感覺按「停！」停在目標秒數。"; renderPlayer(); }
 function liveTick(){ if(!running)return; if(!S.blind){const e=nowMs()-tStart;$("#pTargetVal").textContent=fx(e);} raf=requestAnimationFrame(liveTick); }
+/* 盲跑計時中：左右跑馬燈，速度每回合隨機、變化時機也隨機 → 完全無規律，不可讀秒 */
+let marqRAF=null,marqTrack=null,marqPos=0,marqVel=90,marqTargetVel=90,marqNext=0,marqLast=0,marqSegW=0;
+function showTimingMarquee(){
+  $("#pLbl").textContent="盲跑中";
+  $("#pTargetVal").classList.remove("blindhide");
+  const seg="計時中　".repeat(6);
+  $("#pTargetVal").innerHTML=`<span class="tmarq"><span class="tmtrack">${seg}${seg}</span></span>`;
+  marqTrack=$("#pTargetVal .tmtrack");
+  // 尊重「減少動態」偏好：直接靜態顯示，不跑動
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches){ marqTrack.style.transform="none"; return; }
+  marqSegW=(marqTrack.getBoundingClientRect().width/2)||(marqTrack.scrollWidth/2)||600;   // 一份 seg 寬（track 是兩份）
+  marqPos=0; marqVel=marqTargetVel=60+Math.random()*140; marqNext=0; marqLast=0;
+  cancelAnimationFrame(marqRAF); marqRAF=requestAnimationFrame(marqStep);
+}
+function marqStep(ts){
+  if(!marqTrack || !document.body.contains(marqTrack)){ marqRAF=null; return; }   // 已離開計時畫面 → 自動停止
+  if(!marqLast) marqLast=ts;
+  const dt=Math.min(0.05,(ts-marqLast)/1000); marqLast=ts;
+  if(ts>=marqNext){ marqTargetVel=35+Math.random()*205; marqNext=ts+220+Math.random()*560; }  // 隨機新目標速度＋隨機間隔
+  marqVel += (marqTargetVel-marqVel)*Math.min(1,dt*3.5);                                        // 平滑趨近，不生硬
+  marqPos -= marqVel*dt;
+  if(marqSegW>0){ while(marqPos<=-marqSegW) marqPos+=marqSegW; }                                // 無縫循環
+  marqTrack.style.transform="translateX("+marqPos.toFixed(1)+"px)";
+  marqRAF=requestAnimationFrame(marqStep);
+}
 pBtn.addEventListener("click",()=>{
   // 新玩法：只有「停」一個動作（計時已於倒數結束時全體自動開始）
   if(submitted||!S.roundOpen||!running)return;
