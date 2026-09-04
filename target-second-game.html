@@ -814,8 +814,9 @@ function startCountdown(goAt){
       if(!started){
         started=true;
         setRoundOpen(true);
-        // ★ 明確的「開始！」閃現：讓全場清楚知道正確起跑瞬間（1 與起跑之間不再誤會）
+        // ★ 明確的「開始！」閃現 + 清脆「叮！」：讓全場用看的、用聽的都知道正確起跑瞬間
         num.textContent="開始！"; ov.classList.add("show","go"); popAnim(num);
+        startDing();
         if(S.role==="host"){ cdSpoken=0; say("開始"); }
         // 玩家：此刻自動開始計時，錨定共同起跑點 goAt
         if(S.role==="player" && !submitted && !running){
@@ -850,6 +851,23 @@ function startRoundCountdown(){
 
 /* ── 神準慶祝（每支手機都會跳） ── */
 let ac=null;
+/* 解鎖音訊：手機需在使用者互動後才允許出聲，故第一次點擊/觸控時先喚醒 AudioContext */
+function unlockAudio(){ try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume(); }catch(e){} }
+["pointerdown","touchstart","keydown"].forEach(ev=>window.addEventListener(ev,unlockAudio,{once:true,passive:true}));
+/* 起跑「叮！」：清脆鈴聲，讓全場用聽的也知道正確起跑瞬間 */
+function startDing(){
+  try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
+    const t=ac.currentTime;
+    [[1319,.55],[1976,.30]].forEach(([f,vol])=>{                 // 疊兩個泛音 → 鈴鐺音色
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type="sine";o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+      g.gain.setValueAtTime(.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+.008);           // 快速起音
+      g.gain.exponentialRampToValueAtTime(.0001,t+.6);           // 約 0.6 秒鈴響衰減
+      o.start(t);o.stop(t+.65);
+    });
+  }catch(e){}
+}
 function fanfare(){
   try{ if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended")ac.resume();
     [0,.12,.24].forEach((d,i)=>{ const o=ac.createOscillator(),g=ac.createGain();
