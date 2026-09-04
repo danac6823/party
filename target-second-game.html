@@ -378,8 +378,8 @@
         <div class="rt">📋 玩法 · 猜秒數</div>
         <ol>
           <li>主持人公布目標秒數，大家一起倒數 <b>3-2-1</b></li>
-          <li>按紅色「開始」，心裡默數（畫面看不到碼錶）</li>
-          <li>憑感覺接近目標時按「<b>停！</b>」</li>
+          <li>倒數結束<b>全體同時自動開始</b>，心裡默數（畫面看不到碼錶）</li>
+          <li>憑感覺接近目標時按紅色「<b>停！</b>」</li>
           <li>最接近目標的人得分；誤差夠小算「<b>神準</b>」另有獎</li>
         </ol>
       </div>
@@ -469,7 +469,7 @@
       <div class="roundbar"><div class="roundno">第 <span id="pRoundNo">1</span> 回合</div><div class="phase" id="pPhase"></div></div>
       <div class="target"><div class="lbl" id="pLbl">目標停在</div><div class="val mono" id="pTargetVal">10.000</div></div>
       <div class="btnstage"><div class="btnhousing"><button class="stopbtn" id="pBtn">開始</button></div></div>
-      <div class="yourline" id="pResult">按「開始」→ 憑感覺停在目標秒數。</div>
+      <div class="yourline" id="pResult">倒數 3·2·1 後自動開始，憑感覺按「停！」停在目標秒數。</div>
     </div>
 
     <div class="card">
@@ -548,7 +548,7 @@
     <ol class="isteps">
       <li>手機相機掃上方 QR（或到網址輸入房號）</li>
       <li>填暱稱 → 加入</li>
-      <li>看自己手機，主持人喊開始就出手</li>
+      <li>倒數結束自動開始，憑感覺按「停！」</li>
     </ol>
     <div class="ibtns">
       <button class="btn ghost" id="iprint">列印</button>
@@ -677,20 +677,30 @@ function createRoom(){
 }
 
 function normName(s){ return (s||"").trim().replace(/\s+/g," ").toLowerCase(); }
+let joinWaitRef=null;
 function doJoin(code,name){
   code=sanitizeCode(code); name=(name||"").trim().replace(/\s+/g," ");
   if(code.length<3){toast("房號無效");return;}
   if(!name){toast("請先輸入名字");return;}
   if(db){
+    // 真正加入（房間已存在時）
+    const finishJoin=()=>db.ref(`rooms/${code}/players`).get().then(psnap=>{
+      const players=psnap.val()||{};
+      const taken=Object.keys(players).some(k=>k!==myId && normName(players[k].name)===normName(name));
+      if(taken){ toast("這個名字已經有人用了，換一個吧 🙏"); const b=$("#btnEnter"); if(b){b.disabled=false;b.textContent="加入";} return; }
+      S.code=code;S.role="player";S.myName=name;saveName(name);
+      db.ref(path("players",myId)).set({name,joinedAt:firebase.database.ServerValue.TIMESTAMP});
+      watchRoom();goto("s-player");renderPlayer();
+    });
     db.ref(`rooms/${code}/meta`).get().then(snap=>{
-      if(!snap.exists()){toast("找不到這個房間，請確認房號");return;}
-      return db.ref(`rooms/${code}/players`).get().then(psnap=>{
-        const players=psnap.val()||{};
-        const taken=Object.keys(players).some(k=>k!==myId && normName(players[k].name)===normName(name));
-        if(taken){ toast("這個名字已經有人用了，換一個吧 🙏"); return; }
-        S.code=code;S.role="player";S.myName=name;saveName(name);
-        db.ref(path("players",myId)).set({name,joinedAt:firebase.database.ServerValue.TIMESTAMP});
-        watchRoom();goto("s-player");renderPlayer();
+      if(snap.exists()) return finishJoin();
+      // 房間還沒建（固定房號時，主持人尚未開始）→ 不再死路，自動等待，房一開就進
+      toast("主持人還沒開始，幫你自動等待…");
+      const b=$("#btnEnter"); if(b){ b.disabled=true; b.textContent="⏳ 等主持人開始…"; }
+      if(joinWaitRef) joinWaitRef.off();
+      joinWaitRef=db.ref(`rooms/${code}/meta`);
+      joinWaitRef.on("value",s=>{
+        if(s.exists()){ joinWaitRef.off(); joinWaitRef=null; if(b){b.disabled=false;b.textContent="加入";} finishJoin(); }
       });
     }).catch(e=>{console.error(e);toast("連線失敗，稍後再試");});
   } else {
@@ -794,8 +804,20 @@ function startCountdown(goAt){
       setRoundOpen(false);
     } else {
       ov.classList.remove("show");
-      setRoundOpen(true);
       clearInterval(cdTimer);
+      setRoundOpen(true);
+      // 新玩法：倒數結束 → 全體同一起跑點「自動開始」計時，玩家只需按「停」
+      if(S.role==="player" && !submitted && !running){
+        running=true;
+        tStart=nowMs()-Math.max(0,serverNow()-goAt);   // 錨定到共同起跑點 goAt（之後用本機高精度計時量誤差）
+        try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
+        if(S.blind){ $("#pTargetVal").textContent="—"; $("#pTargetVal").classList.add("blindhide"); }
+        else $("#pTargetVal").classList.remove("blindhide");
+        $("#pLbl").textContent="計時中";
+        $("#pResult").innerHTML='<b style="color:var(--miss)">⏱ 開始！</b> 憑感覺按「停！」';
+        refreshPlayBtn();
+        liveTick();
+      }
     }
   }
   tick();cdTimer=setInterval(tick,100);
@@ -844,29 +866,22 @@ function refreshPlayBtn(){
   if(!S.roundOpen){pBtn.disabled=true;pBtn.className="stopbtn";pBtn.textContent=(S.goAt>0?"準備":"等待中");return;}
   if(submitted){pBtn.disabled=true;pBtn.className="stopbtn";pBtn.textContent="已送出";return;}
   if(running){pBtn.disabled=false;pBtn.className="stopbtn go";pBtn.textContent="停！";return;}
-  pBtn.disabled=false;pBtn.className="stopbtn";pBtn.textContent="開始";
+  pBtn.disabled=true;pBtn.className="stopbtn";pBtn.textContent="準備…";   // 倒數結束會自動開始，玩家不用先按開始
 }
 function resetPlay(){ running=false;submitted=false;if(raf)cancelAnimationFrame(raf);
-  $("#pResult").innerHTML="按「開始」→ 憑感覺停在目標秒數。"; renderPlayer(); }
+  $("#pResult").innerHTML="倒數 3·2·1 後會自動開始，憑感覺按「停！」停在目標秒數。"; renderPlayer(); }
 function liveTick(){ if(!running)return; if(!S.blind){const e=nowMs()-tStart;$("#pTargetVal").textContent=fx(e);} raf=requestAnimationFrame(liveTick); }
 pBtn.addEventListener("click",()=>{
-  if(submitted||!S.roundOpen)return;
-  if(!running){
-    running=true;tStart=nowMs();refreshPlayBtn();
-    try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
-    if(S.blind){$("#pTargetVal").textContent="—";$("#pTargetVal").classList.add("blindhide");}
-    $("#pResult").innerHTML='<b style="color:var(--miss)">⏱ 計時中…</b> 記得憑感覺按「停！」';
-    liveTick();
-  } else {
-    running=false;if(raf)cancelAnimationFrame(raf);
-    try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}
-    const elapsed=nowMs()-tStart,error=Math.abs(elapsed-S.target);
-    submitted=true;refreshPlayBtn();
-    $("#pTargetVal").classList.remove("blindhide");
-    $("#pLbl").textContent="你停在"; $("#pTargetVal").textContent=fx(elapsed);
-    $("#pResult").innerHTML=`目標 ${fx(S.target)} 秒 · 誤差 <b>${fx(error)}</b> 秒<br><span style="color:var(--muted)">等主持人結算…</span>`;
-    submitResult(elapsed,error);
-  }
+  // 新玩法：只有「停」一個動作（計時已於倒數結束時全體自動開始）
+  if(submitted||!S.roundOpen||!running)return;
+  running=false;if(raf)cancelAnimationFrame(raf);
+  try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}
+  const elapsed=nowMs()-tStart,error=Math.abs(elapsed-S.target);
+  submitted=true;refreshPlayBtn();
+  $("#pTargetVal").classList.remove("blindhide");
+  $("#pLbl").textContent="你停在"; $("#pTargetVal").textContent=fx(elapsed);
+  $("#pResult").innerHTML=`目標 ${fx(S.target)} 秒 · 誤差 <b>${fx(error)}</b> 秒<br><span style="color:var(--muted)">等主持人結算…</span>`;
+  submitResult(elapsed,error);
 });
 function submitResult(elapsed,error){
   const rec={name:S.myName,elapsed:Math.round(elapsed),error:Math.round(error),
