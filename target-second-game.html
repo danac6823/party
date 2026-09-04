@@ -422,7 +422,7 @@
         <button class="btn ghost" id="btnNextRound">下一回合</button>
         <button class="btn gold" id="btnAwards">🏆 3 回合結束 · 頒獎</button>
         <button class="btn ghost" id="btnInvite">邀請 QR（可列印）</button>
-        <button class="btn ghost" id="btnResetScore">清空歷史成績</button>
+        <button class="btn ghost" id="btnResetScore">清空最佳成績</button>
         <button class="btn ghost" id="btnResetEvent">整場重置</button>
         <button class="btn danger" id="btnEndRoom">結束房間</button>
       </div>
@@ -458,7 +458,7 @@
       <div id="hcPending" class="pending" style="display:none"></div>
       <div class="boardtabs" role="tablist">
         <button role="tab" aria-selected="true" data-b="round">本回合排行</button>
-        <button role="tab" aria-selected="false" data-b="total">歷史成績</button>
+        <button role="tab" aria-selected="false" data-b="total">最佳成績</button>
         <button role="tab" aria-selected="false" data-b="bull">神準榜</button>
       </div>
       <div class="rows" id="hRows"><div class="empty">等待玩家出手…</div></div>
@@ -485,7 +485,7 @@
       </div>
       <div class="boardtabs" role="tablist">
         <button role="tab" aria-selected="true" data-b="round">本回合</button>
-        <button role="tab" aria-selected="false" data-b="total">歷史成績</button>
+        <button role="tab" aria-selected="false" data-b="total">最佳成績</button>
         <button role="tab" aria-selected="false" data-b="bull">神準</button>
       </div>
       <div class="rows" id="pRows"><div class="empty">還沒有人出手</div></div>
@@ -1046,7 +1046,7 @@ function nextRound(){
     resetPlay(); goIdle(); renderHost(); }
 }
 function revealRound(){ settleRound(); renderHost(); }
-async function resetScores(){ if(!await askConfirm("清除所有玩家的歷史最佳成績？"))return;
+async function resetScores(){ if(!await askConfirm("清除所有玩家的最佳成績？"))return;
   if(db) db.ref(path("scores")).remove(); else S.scores=[]; renderActiveBoard(); }
 async function endRoom(){ if(!await askConfirm("結束並刪除這個房間？"))return; if(db) db.ref("rooms/"+S.code).remove(); location.reload(); }
 
@@ -1157,7 +1157,7 @@ function boardRows(el){
   let list,kind=S.boardTab;
   if(kind==="round") list=[...S.roundResults].sort((a,b)=>a.error-b.error||(a.submittedAt||0)-(b.submittedAt||0));
   else if(kind==="bull") list=[...S.bullseyes].sort((a,b)=>((a.bestErr!=null?a.bestErr:1e12)-(b.bestErr!=null?b.bestErr:1e12))||((a.firstAt||0)-(b.firstAt||0)));
-  else list=[...S.scores].sort((a,b)=>((a.bestErr!=null?a.bestErr:1e12)-(b.bestErr!=null?b.bestErr:1e12))||((a.bestElapsed||0)-(b.bestElapsed||0)));  // 歷史成績：依每人最佳一次排
+  else list=[...S.scores].sort((a,b)=>((a.bestErr!=null?a.bestErr:1e12)-(b.bestErr!=null?b.bestErr:1e12))||((a.bestElapsed||0)-(b.bestElapsed||0)));  // 最佳成績：依每人最佳一次排
   if(!list.length){ el.innerHTML='<div class="empty">'+(kind==="round"?"等待玩家出手…":kind==="bull"?"還沒有人神準":"結算後顯示最佳成績")+'</div>'; return; }
   const rowHtml=(r,i,extra)=>{
     const me=r.id===myId?" me":"",top=i===0?" top1":"";
