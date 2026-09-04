@@ -190,8 +190,8 @@
   .cdover.go .cdnum{font-family:"Space Grotesk","PingFang TC",sans-serif;color:var(--gold);
     font-size:clamp(84px,24vw,220px);text-shadow:0 0 60px rgba(255,210,87,.85);animation:goburst .16s cubic-bezier(.2,1.5,.3,1)}
   @keyframes goburst{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
-  /* 起跑轉場：快速掀簾上滑退場，讓「開始！」緊貼起跑瞬間、不逗留造成誤判 */
-  .cdover.exit{animation:cdexit .22s cubic-bezier(.6,0,.25,1) forwards}
+  /* 起跑轉場：快速掀簾上滑退場（不顯示「開始」文字，緊貼起跑瞬間、不逗留造成誤判） */
+  .cdover.exit{animation:cdexit .22s cubic-bezier(.6,0,.25,1) forwards;pointer-events:none}
   @keyframes cdexit{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-100%)}}
 
   .range .hitzone{position:absolute;top:8px;bottom:8px;left:50%;transform:translateX(-50%);
@@ -387,12 +387,12 @@
       </div>
       <div class="field" style="margin-top:16px"><button class="btn primary" id="btnEnter" disabled>加入遊戲</button></div>
       <div class="rulesbox">
-        <div class="rt">📋 玩法 · 猜 12.00 秒</div>
+        <div class="rt">📋 玩法 · 盲抓 12.00 秒</div>
         <ol>
-          <li>主持人按開始，大家一起倒數 <b>3-2-1</b></li>
-          <li>聽到「<b>叮</b>」<b>全體同時起跑</b>（那一聲＝0 秒基準），心裡默數（看不到碼錶）</li>
-          <li>感覺到 <b>12.00 秒</b>就按紅色「<b>停！</b>」</li>
-          <li>打 <b>3 回合</b>，結束一起頒獎：最準上排名獎、神準標亮、幸運數字加碼</li>
+          <li>全場一起倒數 <b>3 · 2 · 1</b></li>
+          <li>「<b>叮！</b>」一聲同時起跑 —— <b>那一刻就是 0 秒</b></li>
+          <li>螢幕看不到碼錶，心裡默數，覺得滿 <b>12.00 秒</b>就按紅色「<b>停！</b>」</li>
+          <li>誤差越小越神準；共打 <b>3 回合</b>，最後一次頒獎</li>
         </ol>
       </div>
       <p class="note" style="text-align:center;margin-top:14px"><a href="#" id="eHost">我是主持人 →</a></p>
@@ -815,9 +815,9 @@ function startCountdown(goAt){
         started=true;
         clearInterval(cdTimer);   // 起跑已觸發，倒數 tick 任務結束
         setRoundOpen(true);
-        // ★「開始！」金色爆入 + 清脆「叮！」，隨即掀簾式退場露出遊戲畫面
-        num.textContent="開始！"; ov.classList.add("show","go"); ov.classList.remove("exit"); popAnim(num);
-        startDing();   // 起跑只用「叮」，不再念「開始」語音
+        // ★ 起跑：不顯示「開始」文字，倒數覆蓋層直接「掀簾上滑」露出遊戲畫面 + 清脆「叮！」
+        num.textContent=""; ov.classList.remove("go"); ov.classList.add("show","exit");
+        startDing();
         // 玩家：此刻自動開始計時，錨定共同起跑點 goAt
         if(S.role==="player" && !submitted && !running){
           running=true;
@@ -825,13 +825,11 @@ function startCountdown(goAt){
           try{navigator.vibrate&&navigator.vibrate([50,40,90])}catch(e){}
           if(S.blind){ showTimingMarquee(); }
           else { $("#pTargetVal").classList.remove("blindhide"); $("#pLbl").textContent="計時中"; }
-          $("#pResult").innerHTML='<b style="color:var(--lock)">⏱ 開始！</b> 憑感覺按「停！」';
+          $("#pResult").innerHTML='<b style="color:var(--lock)">⏱ 正在計時中</b> 憑感覺按「停！」';
           refreshPlayBtn();
           liveTick();
         }
-        // 起跑轉場：「開始！」快速閃現 → 掀簾上滑退場 → 收掉（總長縮短，緊貼起跑瞬間）
-        setTimeout(()=>ov.classList.add("exit"),180);
-        setTimeout(()=>ov.classList.remove("show","go","exit"),400);
+        setTimeout(()=>ov.classList.remove("show","go","exit"),260);   // 掀簾轉場結束收掉覆蓋層
       }
     }
   }
