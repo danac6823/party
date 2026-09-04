@@ -1227,12 +1227,12 @@ function previewPlayer(){ if(db) return;                  // 僅限本地試玩�
 function backToHost(){ S.role="host"; goto("s-host"); renderHost(); renderChalHost(); }
 
 /* ══════════ 自由挑戰模式 ══════════ */
-let cRunning=false,cStart=0,cAttempts=0,cBest=null,cBestElapsed=0,cHit=false,cHitAt=0,cLog=[];
+let cRunning=false,cStart=0,cAttempts=0,cBest=null,cBestElapsed=0,cBestAt=0,cHit=false,cHitAt=0,cLog=[];
 let chalSeeded=false; const announced=new Set();
 function enterChallenge(){
   const mine=S.challengers.find(c=>c.id===myId);
-  if(mine){ cAttempts=mine.attempts||0; cBest=(mine.best!=null?mine.best:null); cBestElapsed=mine.bestElapsed||0; cHit=!!mine.hit; cHitAt=mine.hitAt||0; cLog=Array.isArray(mine.log)?mine.log.slice():[]; }
-  else { cAttempts=0;cBest=null;cBestElapsed=0;cHit=false;cHitAt=0;cLog=[]; }
+  if(mine){ cAttempts=mine.attempts||0; cBest=(mine.best!=null?mine.best:null); cBestElapsed=mine.bestElapsed||0; cBestAt=mine.bestAt||0; cHit=!!mine.hit; cHitAt=mine.hitAt||0; cLog=Array.isArray(mine.log)?mine.log.slice():[]; }
+  else { cAttempts=0;cBest=null;cBestElapsed=0;cBestAt=0;cHit=false;cHitAt=0;cLog=[]; }
   cRunning=false;
 }
 function renderCLog(){
@@ -1257,7 +1257,7 @@ function renderChallenge(){
   setCBtn(); renderCLog(); renderChalBoards();
 }
 function writeChallenge(){
-  const rec={name:S.myName,attempts:cAttempts,best:cBest,bestElapsed:cBestElapsed,hit:cHit,hitAt:cHitAt,done:cAttempts>=10,log:cLog,at:serverNow()};
+  const rec={name:S.myName,attempts:cAttempts,best:cBest,bestElapsed:cBestElapsed,bestAt:cBestAt,hit:cHit,hitAt:cHitAt,done:cAttempts>=10,log:cLog,at:serverNow()};
   if(db) db.ref(path("challenge",myId)).set(rec);
   else { S.challengers=S.challengers.filter(c=>c.id!==myId).concat([{id:myId,...rec}]); onChallengersUpdate(); }
 }
@@ -1277,14 +1277,14 @@ cBtn && cBtn.addEventListener("click",()=>{
     try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}
     const elapsed=nowMs()-cStart, error=Math.abs(elapsed-S.target);
     cAttempts++;
-    if(cBest==null||error<cBest){ cBest=error; cBestElapsed=elapsed; }
+    if(cBest==null||error<cBest){ cBest=error; cBestElapsed=elapsed; cBestAt=cAttempts; }
     const nowHit=error<=S.hit; let firstHit=false;
     if(nowHit && !cHit){ cHit=true; cHitAt=cAttempts; firstHit=true; }
     const god=error<PERFECT_MS; if(god) awardGod(myId,S.myName,error,elapsed);
     cLog.push({el:Math.round(elapsed),er:Math.round(error),hit:nowHit,god:god});
     $("#cLbl").textContent="你停在";$("#cTargetVal").classList.remove("blindhide");$("#cTargetVal").textContent=fx(elapsed);
     $("#cPhase").textContent=cPhaseText();
-    $("#cResult").innerHTML=`第 ${cAttempts} 次：<b>${fx(elapsed)}</b> · 誤差 <b>${fx(error)}</b>｜最佳 <b>${fx(cBest)}</b>`+(god?` · <b style="color:var(--gold)">👑 十二之神！</b>`:cHit?` · <b style="color:var(--gold)">🎉 已達標(第${cHitAt}次)</b>`:``);
+    $("#cResult").innerHTML=`第 ${cAttempts} 次：停 <b>${fx(elapsed)}</b> · 誤差 <b>${fx(error)}</b>｜最佳 停 <b>${fx(cBestElapsed)}</b> · 誤差 <b>${fx(cBest)}</b>`+(god?` · <b style="color:var(--gold)">👑 十二之神！</b>`:cHit?` · <b style="color:var(--gold)">🎉 達標 第${cHitAt}次 · 最佳 第${cBestAt}次</b>`:``);
     writeChallenge(); setCBtn(); renderCLog();
     if(god) celebrate({name:"你",detail:"誤差 "+fx3(error)+" 秒",star:"👑",big:"十二之神！",say:""});
     else if(firstHit) celebrate({name:"你",detail:"達標！誤差 "+fx(error)+" 秒",star:"🎉",big:"達標！",say:""});
@@ -1321,7 +1321,7 @@ function onChallengersUpdate(){
   else if(S.role==="host"){ S.challengers.forEach(c=>{ if(c.hit && !announced.has(c.id)){ announced.add(c.id); notifyChal(c); } }); }
   if(S.role==="player" && S.mode==="challenge" && cAttempts===0){
     const mine=S.challengers.find(c=>c.id===myId);
-    if(mine && (mine.attempts||0)>0){ cAttempts=mine.attempts;cBest=mine.best;cBestElapsed=mine.bestElapsed||0;cHit=!!mine.hit;cHitAt=mine.hitAt||0;cLog=Array.isArray(mine.log)?mine.log.slice():[]; setCBtn(); $("#cPhase").textContent=cPhaseText(); renderCLog(); }
+    if(mine && (mine.attempts||0)>0){ cAttempts=mine.attempts;cBest=mine.best;cBestElapsed=mine.bestElapsed||0;cBestAt=mine.bestAt||0;cHit=!!mine.hit;cHitAt=mine.hitAt||0;cLog=Array.isArray(mine.log)?mine.log.slice():[]; setCBtn(); $("#cPhase").textContent=cPhaseText(); renderCLog(); }
   }
   renderChalBoards(); renderChalHost();
 }
@@ -1330,7 +1330,7 @@ function endChallengeMode(){ if(db) db.ref(path("meta")).update({mode:"game"}); 
 async function clearChallenge(){ if(!await askConfirm("清除所有挑戰紀錄？（次數與最佳成績歸零）"))return;
   announced.clear(); chalSeeded=false;
   if(db) db.ref(path("challenge")).remove(); else { S.challengers=[]; }
-  cAttempts=0;cBest=null;cBestElapsed=0;cHit=false;cHitAt=0;
+  cAttempts=0;cBest=null;cBestElapsed=0;cBestAt=0;cHit=false;cHitAt=0;
   renderChalBoards(); }
 
 /* ── 綁定 ── */
